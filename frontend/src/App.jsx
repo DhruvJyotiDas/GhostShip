@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useDarkMode } from "./hooks/useDarkMode";
 import {
   Navbar,
   AuthPortal,
@@ -95,6 +96,37 @@ const defaultAnomalyRows = [
   { type: "Value discrepancy: USD 456K under declared range", severity: "MEDIUM", status: "Review", timestamp: "3 min ago", engine: "DOC" },
   { type: "Entity linked to 2 prior anomalies", severity: "MEDIUM", status: "Open", timestamp: "4 min ago", engine: "REL" },
 ];
+
+const demoDocumentTemplates = {
+  invoice: `COMMERCIAL INVOICE
+Invoice No: INV-GS-2401
+Container ID: MSCU4582217
+Shipment ID: DOC-DEMO-001
+Commodity: Consumer electronics
+Origin: Hong Kong
+Destination: Dubai
+Quantity: 1240 units
+Declared Value: USD 482000
+Weight: 8420 kg`,
+  packing_list: `PACKING LIST
+Container Number: MSCU4582217
+Booking No: DOC-DEMO-001
+Product Description: Consumer electronics
+Quantity: 1185 units
+Gross Weight: 8420 kg
+Volume: 28.4 cbm
+Port of Loading: Hong Kong
+Port of Discharge: Dubai`,
+  bill_of_lading: `BILL OF LADING
+Container No: MSCU4582217
+Reference No: DOC-DEMO-001
+Cargo Description: Consumer electronics
+Country of Origin: Hong Kong
+Final Destination: Dubai
+Number of Packages: 1240
+Declared Value: USD 482000
+Temperature: 24 C`,
+};
 
 function buildDemoCsvPayload(settings) {
   return {
@@ -224,6 +256,142 @@ function buildDemoCsvPayload(settings) {
   };
 }
 
+function buildDemoDocumentPayload() {
+  return {
+    ok: true,
+    top_result: {
+      shipment_id: "DOC-DEMO-001",
+      risk_score: 88,
+      status: "HIGH",
+      confidence: 94,
+      recommended_action: "Secondary hold and document reconciliation",
+      explanation:
+        "The uploaded set presents a cross-document quantity mismatch and an implausible ambient condition for sensitive electronics. The bill of lading and packing list do not align cleanly with the commercial invoice, so the shipment should be held for supporting proof and seal verification.",
+      risk_tags: ["DOCUMENT FRAUD", "DECLARATION REVIEW", "CARGO VERIFICATION"],
+      shipment_details: {
+        shipment_id: "DOC-DEMO-001",
+        container_id: "MSCU4582217",
+        company_name: "Harbor Axis Trading",
+        commodity: "Consumer electronics",
+        origin: "Hong Kong",
+        destination: "Dubai",
+        quantity: 1240,
+        value: 482000,
+        weight_kg: 8420,
+        volume_cbm: 28.4,
+        temperature_celsius: 24,
+      },
+      engine_breakdown: {
+        Physics: 0.28,
+        Document: 0.94,
+        Behavior: 0.39,
+        Network: 0.21,
+      },
+    },
+    anomalies: [
+      {
+        type: "Cross-document quantity mismatch between invoice and packing list",
+        severity: "HIGH",
+        status: "Open",
+        timestamp: "Just now",
+        category: "document",
+      },
+      {
+        type: "Declared handling condition requires cargo verification before release",
+        severity: "MEDIUM",
+        status: "Review",
+        timestamp: "1 min ago",
+        category: "physics",
+      },
+      {
+        type: "Value and package counts require supporting shipper clarification",
+        severity: "MEDIUM",
+        status: "Review",
+        timestamp: "2 min ago",
+        category: "document",
+      },
+    ],
+    documents: {
+      invoice: {
+        file_name: "demo_invoice.txt",
+        parsed_fields: {
+          container_id: "MSCU4582217",
+          shipment_id: "DOC-DEMO-001",
+          commodity: "Consumer electronics",
+          quantity: 1240,
+          declared_value: 482000,
+          origin: "Hong Kong",
+          destination: "Dubai",
+        },
+        text_excerpt: "Invoice records 1,240 units of consumer electronics with declared value USD 482,000.",
+      },
+      packing_list: {
+        file_name: "demo_packing_list.txt",
+        parsed_fields: {
+          container_id: "MSCU4582217",
+          shipment_id: "DOC-DEMO-001",
+          commodity: "Consumer electronics",
+          quantity: 1185,
+          weight_kg: 8420,
+          volume_cbm: 28.4,
+          origin: "Hong Kong",
+          destination: "Dubai",
+        },
+        text_excerpt: "Packing list records 1,185 units, creating a variance against the invoice quantity.",
+      },
+      bill_of_lading: {
+        file_name: "demo_bill_of_lading.txt",
+        parsed_fields: {
+          container_id: "MSCU4582217",
+          shipment_id: "DOC-DEMO-001",
+          commodity: "Consumer electronics",
+          quantity: 1240,
+          temperature_celsius: 24,
+          origin: "Hong Kong",
+          destination: "Dubai",
+        },
+        text_excerpt: "Bill of lading confirms route and package count but introduces handling conditions that require verification.",
+      },
+    },
+    results: [
+      {
+        shipment_id: "DOC-DEMO-001",
+        classification: "HIGH",
+        risk_score: 88,
+        action: "Hold for reconciliation",
+        explanation: "Invoice, packing list, and bill of lading disagree on quantity and handling expectations.",
+        engine_scores: { Physics: 0.28, Document: 0.94, Behavior: 0.39, Network: 0.21 },
+        details: {
+          document: {
+            quantity_mismatch: "Invoice lists 1,240 units while packing list shows 1,185 units",
+            value_mismatch: "Declared value requires supporting declaration review",
+          },
+        },
+      },
+      {
+        shipment_id: "DOC-DEMO-002",
+        classification: "MEDIUM",
+        risk_score: 57,
+        action: "Secondary inspection",
+        explanation: "Supporting papers are mostly aligned but require origin and valuation verification.",
+        engine_scores: { Physics: 0.14, Document: 0.58, Behavior: 0.22, Network: 0.19 },
+        details: {
+          document: { origin_fraud: "Origin and routing need manual confirmation" },
+        },
+      },
+      {
+        shipment_id: "DOC-DEMO-003",
+        classification: "LOW",
+        risk_score: 16,
+        action: "Direct clearance",
+        explanation: "Document set aligns and no material discrepancies were detected.",
+        engine_scores: { Physics: 0.05, Document: 0.12, Behavior: 0.03, Network: 0.02 },
+        details: {},
+      },
+    ],
+  };
+}
+
 function titleCaseEngine(engine) {
   return engine.charAt(0).toUpperCase() + engine.slice(1).toLowerCase();
 }
@@ -328,7 +496,11 @@ export default function App() {
   const [demoCsvLoading, setDemoCsvLoading] = useState(false);
   const [demoCsvMessage, setDemoCsvMessage] = useState("");
   const [demoCsvSelected, setDemoCsvSelected] = useState(false);
+  const [demoDocumentLoading, setDemoDocumentLoading] = useState(false);
+  const [demoDocumentMessage, setDemoDocumentMessage] = useState("");
+  const [demoDocumentsSelected, setDemoDocumentsSelected] = useState(false);
 
+  const [dark, setDark] = useDarkMode();
   const { profile, form, saving, message, updateField, saveProfile } = useOfficer(authUser);
   const { analysis, setAnalysis, results, setResults, loading, error, setError, resetAnalysis, loadDemo, analyzeDocuments, analyzeCSV } = useAnalysis();
 
@@ -438,6 +610,8 @@ export default function App() {
 
   function updateDocument(docType, file) {
     setDocuments((current) => ({ ...current, [docType]: file || null }));
+    setDemoDocumentsSelected(false);
+    setDemoDocumentMessage("");
     setError("");
   }
 
@@ -483,6 +657,31 @@ export default function App() {
     }
   }
 
+  async function runDemoDocumentFlow() {
+    setIntakeMode("documents");
+    setCsvFile(null);
+    setDemoCsvSelected(false);
+    setDemoCsvMessage("");
+    setDemoDocumentsSelected(true);
+    setDemoDocumentLoading(true);
+    setError("");
+
+    try {
+      const nextDocuments = {
+        invoice: new File([demoDocumentTemplates.invoice], "demo_invoice.txt", { type: "text/plain" }),
+        packing_list: new File([demoDocumentTemplates.packing_list], "demo_packing_list.txt", { type: "text/plain" }),
+        bill_of_lading: new File([demoDocumentTemplates.bill_of_lading], "demo_bill_of_lading.txt", { type: "text/plain" }),
+      };
+      setDocuments(nextDocuments);
+      await runTimedDocumentDemoAnalysis();
+    } catch (err) {
+      setDemoDocumentMessage("");
+      setError(err.message || "Could not run the demo document analysis.");
+    } finally {
+      setDemoDocumentLoading(false);
+    }
+  }
+
   async function runTimedDemoAnalysis() {
     setError("");
     setDemoCsvLoading(true);
@@ -507,6 +706,33 @@ export default function App() {
       setError(err.message || "Could not run the demo CSV analysis.");
     } finally {
       setDemoCsvLoading(false);
+    }
+  }
+
+  async function runTimedDocumentDemoAnalysis() {
+    setError("");
+    setDemoDocumentLoading(true);
+
+    try {
+      setDemoDocumentMessage("Loading invoice, packing list, and bill of lading...");
+      await wait(1000);
+
+      setDemoDocumentMessage("Extracting trade fields and matching shared identifiers...");
+      await wait(1000);
+
+      setDemoDocumentMessage("Reconciling quantities, value bands, and handling conditions...");
+      await wait(1000);
+
+      setDemoDocumentMessage("Generating ranked review findings for customs officers...");
+      await wait(1000);
+
+      applyAnalysisPayload(buildDemoDocumentPayload(), true);
+      setDemoDocumentMessage("Demo document analysis complete. Review the flagged inconsistencies below.");
+    } catch (err) {
+      setDemoDocumentMessage("");
+      setError(err.message || "Could not run the demo document analysis.");
+    } finally {
+      setDemoDocumentLoading(false);
     }
   }
 
@@ -571,7 +797,7 @@ export default function App() {
           ],
     );
     setHeroMetric({
-      eyebrow: isDemo ? "Demo manifest review" : "Current upload review",
+      eyebrow: isDemo ? (intakeMode === "documents" ? "Demo document review" : "Demo manifest review") : "Current upload review",
       title: `${payload.summary.total_shipments.toLocaleString()} shipments analyzed in this intake`,
       description: `${payload.summary.high_risk_alerts.toLocaleString()} priority reviews, ${payload.summary.medium_risk.toLocaleString()} secondary checks, ${payload.summary.cleared_shipments.toLocaleString()} direct clearances.`,
       trend: `${top.risk_score}/100 top risk`,
@@ -601,6 +827,10 @@ export default function App() {
 
     if (intakeMode === "csv" && demoCsvSelected && ((overrideCsvFile || csvFile)?.name === "DATASHEET-01.csv")) {
       await runTimedDemoAnalysis();
+      return;
+    }
+    if (intakeMode === "documents" && demoDocumentsSelected) {
+      await runTimedDocumentDemoAnalysis();
       return;
     }
 
@@ -783,8 +1013,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <Navbar activeView={activeView} setActiveView={setActiveView} officerProfile={displayedProfile} onLogout={handleLogout} />
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <Navbar activeView={activeView} setActiveView={setActiveView} officerProfile={displayedProfile} onLogout={handleLogout} dark={dark} onToggleDark={() => setDark((d) => !d)} />
 
       <main className="mx-auto flex max-w-[1600px] flex-col gap-6 px-5 py-6 sm:px-6 lg:px-8">
         {activeView === "profile" && (
@@ -819,6 +1049,9 @@ export default function App() {
               error={error}
               onFileChange={updateDocument}
               onCsvChange={updateCsv}
+              onUseDemoDocuments={runDemoDocumentFlow}
+              demoDocumentLoading={demoDocumentLoading}
+              demoDocumentMessage={demoDocumentMessage}
               onUseDemoCsv={runDemoCsvFlow}
               demoCsvLoading={demoCsvLoading}
               demoCsvMessage={demoCsvMessage}
@@ -872,6 +1105,9 @@ export default function App() {
               error={error}
               onFileChange={updateDocument}
               onCsvChange={updateCsv}
+              onUseDemoDocuments={runDemoDocumentFlow}
+              demoDocumentLoading={demoDocumentLoading}
+              demoDocumentMessage={demoDocumentMessage}
               onUseDemoCsv={runDemoCsvFlow}
               demoCsvLoading={demoCsvLoading}
               demoCsvMessage={demoCsvMessage}

@@ -22,6 +22,9 @@ export default function UploadBox({
   error,
   onFileChange,
   onCsvChange,
+  onUseDemoDocuments,
+  demoDocumentLoading,
+  demoDocumentMessage,
   onUseDemoCsv,
   demoCsvLoading,
   demoCsvMessage,
@@ -85,36 +88,61 @@ export default function UploadBox({
       </div>
 
       {intakeMode === "documents" ? (
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {documentFields.map((field) => (
-            <label
-              key={field.key}
-              className="block min-w-0 rounded-[28px] border border-dashed border-slate-300 bg-slate-50/70 px-5 py-6 transition hover:border-slate-400 hover:bg-white"
-            >
-              <input
-                type="file"
-                accept=".pdf,.txt,.png,.jpg,.jpeg,.tif,.tiff"
-                className="hidden"
-                onChange={(event) => onFileChange(field.key, event.target.files?.[0])}
-              />
-              <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
-                  <Upload className="h-4.5 w-4.5" />
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            {documentFields.map((field) => (
+              <label
+                key={field.key}
+                className="block min-w-0 rounded-[28px] border border-dashed border-slate-300 bg-slate-50/70 px-5 py-6 transition hover:border-slate-400 hover:bg-white"
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.txt,.png,.jpg,.jpeg,.tif,.tiff"
+                  className="hidden"
+                  onChange={(event) => onFileChange(field.key, event.target.files?.[0])}
+                />
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
+                    <Upload className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-semibold text-slate-900">{field.label}</h3>
+                    <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Upload the supporting document for this shipment.</p>
+                    <p
+                      className={`mt-4 text-sm font-medium ${
+                        documents[field.key]?.name ? "break-all text-slate-900" : "text-slate-500"
+                      }`}
+                    >
+                      {documents[field.key]?.name || "No file selected"}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xl font-semibold text-slate-900">{field.label}</h3>
-                  <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">Upload the supporting document for this shipment.</p>
-                  <p
-                    className={`mt-4 text-sm font-medium ${
-                      documents[field.key]?.name ? "break-all text-slate-900" : "text-slate-500"
-                    }`}
-                  >
-                    {documents[field.key]?.name || "No file selected"}
-                  </p>
-                </div>
+              </label>
+            ))}
+          </div>
+
+          <div className="rounded-[28px] border border-blue-200 bg-blue-50/80 px-5 py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Demo Mode</p>
+                <h3 className="mt-2 text-base font-semibold text-slate-900">Load a prepared 3-document set</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Instantly populate invoice, packing list, and bill of lading with a guided 4-second demo review.
+                </p>
               </div>
-            </label>
-          ))}
+              <button
+                type="button"
+                onClick={onUseDemoDocuments}
+                disabled={loading || demoDocumentLoading}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 lg:w-auto"
+              >
+                {demoDocumentLoading ? "Preparing Demo..." : "Use Demo 3 Documents"}
+              </button>
+            </div>
+            {demoDocumentMessage ? (
+              <p className="mt-3 text-sm font-medium text-blue-900">{demoDocumentMessage}</p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

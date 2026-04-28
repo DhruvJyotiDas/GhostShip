@@ -25,6 +25,10 @@ body {
   background: #f1f5f9;
 }
 
+html.dark body {
+  background: #020617;
+}
+
 button,
 input,
 textarea,

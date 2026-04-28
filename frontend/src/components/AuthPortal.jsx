@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { LogIn, ShieldCheck, UserPlus, Ship, Anchor } from "lucide-react";
+import { LogIn, Moon, ShieldCheck, Sun, UserPlus, Ship, Anchor } from "lucide-react";
 import { apiFetch } from "../utils/api";
+import { useDarkMode } from "../hooks/useDarkMode";
 
 const emptyOfficerRegister = {
   user_id: "",
@@ -35,6 +36,7 @@ const OFFICER_DEMO_ACCOUNT = {
 };
 
 export default function AuthPortal({ onLoginSuccess }) {
+  const [dark, setDark] = useDarkMode();
   const [role, setRole] = useState(null); // null = pick screen, 'officer' | 'shipper'
   const [mode, setMode] = useState("login"); // 'login' | 'register'
   const [loginForm, setLoginForm] = useState({ user_id: "", password: "" });
@@ -155,17 +157,29 @@ export default function AuthPortal({ onLoginSuccess }) {
   // ── Role Picker ─────────────────────────────────────────────────────────
   if (!role) {
     return (
-      <div className="min-h-screen bg-slate-100 text-slate-900">
+      <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-white">
+        {/* Dark mode toggle */}
+        <div className="absolute right-5 top-5">
+          <button
+            type="button"
+            onClick={() => setDark((d) => !d)}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:scale-[1.02] hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white"
+            title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+        </div>
+
         <main className="mx-auto flex min-h-screen max-w-[1600px] items-center justify-center px-5 py-10 sm:px-6 lg:px-8">
           <section className="w-full max-w-[900px]">
             {/* Brand */}
             <div className="mb-10 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-900 text-sm font-bold tracking-[0.2em] text-white">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-900 text-sm font-bold tracking-[0.2em] text-white dark:bg-slate-700">
                 GS
               </div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">GhostShip</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">Port Intelligence System</h1>
-              <p className="mt-3 text-base text-slate-500">Select how you are accessing the system</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">GhostShip</p>
+              <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Port Intelligence System</h1>
+              <p className="mt-3 text-base text-slate-500 dark:text-slate-400">Select how you are accessing the system</p>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
@@ -173,37 +187,45 @@ export default function AuthPortal({ onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => { setRole("shipper"); setMode("login"); resetMessage(); }}
-                className="group rounded-3xl border-2 border-slate-200 bg-white px-8 py-9 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md"
+                className="group rounded-3xl border-2 border-slate-200 bg-white px-8 py-9 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-100">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition group-hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:group-hover:bg-blue-900/50">
                   <Ship className="h-7 w-7" />
                 </div>
-                <h2 className="mt-5 text-2xl font-semibold text-slate-900">I am a Shipper</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <h2 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">I am a Shipper</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                   Submit your vessel details and supporting documents for customs clearance review.
                 </p>
-                <span className="mt-5 inline-block rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white transition group-hover:bg-slate-700">
+                <span className="mt-5 inline-block rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white transition group-hover:bg-slate-700 dark:bg-slate-700 dark:group-hover:bg-slate-600">
                   Shipper Login →
                 </span>
               </button>
 
-              {/* Officer card */}
-              <button
-                type="button"
-                onClick={() => { setRole("officer"); setMode("login"); resetMessage(); }}
-                className="group rounded-3xl border-2 border-slate-200 bg-white px-8 py-9 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 transition group-hover:bg-slate-200">
-                  <Anchor className="h-7 w-7" />
-                </div>
-                <h2 className="mt-5 text-2xl font-semibold text-slate-900">I am a Customs Officer</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Review incoming shipments, run risk analysis, manage the audit queue and inspection pipeline.
-                </p>
-                <span className="mt-5 inline-block rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white transition group-hover:bg-slate-700">
-                  Officer Login →
-                </span>
-              </button>
+              {/* Officer card — glowing, pulsing call-to-action */}
+              <div className="relative">
+                {/* Animated glow ring behind the card */}
+                <div className="absolute -inset-[3px] animate-pulse rounded-[28px] bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 opacity-75 blur-sm" />
+                <button
+                  type="button"
+                  onClick={() => { setRole("officer"); setMode("login"); resetMessage(); }}
+                  className="group relative w-full rounded-3xl border-2 border-amber-400 bg-white px-8 py-9 text-left shadow-lg transition hover:shadow-xl dark:border-amber-500 dark:bg-slate-900"
+                >
+                  {/* "Click me" badge */}
+                  <span className="absolute -right-3 -top-3 animate-bounce rounded-full bg-amber-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-900 shadow-lg">
+                    ✦ Click me
+                  </span>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 transition group-hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:group-hover:bg-amber-900/50">
+                    <Anchor className="h-7 w-7" />
+                  </div>
+                  <h2 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-white">I am a Customs Officer</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                    Review incoming shipments, run risk analysis, manage the audit queue and inspection pipeline.
+                  </p>
+                  <span className="mt-5 inline-block rounded-full bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white shadow transition group-hover:bg-amber-600">
+                    Officer Login →
+                  </span>
+                </button>
+              </div>
             </div>
           </section>
         </main>
@@ -215,12 +237,23 @@ export default function AuthPortal({ onLoginSuccess }) {
   const isOfficer = role === "officer";
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-white">
+      {/* Dark mode toggle */}
+      <div className="absolute right-5 top-5 z-10">
+        <button
+          type="button"
+          onClick={() => setDark((d) => !d)}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:scale-[1.02] hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:text-white"
+          title={dark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
+      </div>
       <main className="mx-auto flex min-h-screen max-w-[1600px] items-center justify-center px-5 py-10 sm:px-6 lg:px-8">
         <section className="grid w-full max-w-[1280px] gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(540px,0.85fr)]">
 
           {/* Left panel */}
-          <div className="rounded-[32px] border border-slate-200 bg-white px-7 py-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
+          <div className="rounded-[32px] border border-slate-200 bg-white px-7 py-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 text-sm font-bold tracking-[0.2em] text-white">
                 GS
@@ -233,14 +266,14 @@ export default function AuthPortal({ onLoginSuccess }) {
 
             <div className="mt-8">
               <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold
-                ${isOfficer ? "bg-slate-100 text-slate-700" : "bg-blue-50 text-blue-700"}`}>
+                ${isOfficer ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" : "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}>
                 {isOfficer ? <Anchor className="h-3.5 w-3.5" /> : <Ship className="h-3.5 w-3.5" />}
                 {isOfficer ? "Customs Officer Access" : "Shipper Access"}
               </div>
-              <h2 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
+              <h2 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">
                 {isOfficer ? "Secure the floor before opening the dashboard" : "Submit your vessel for inspection"}
               </h2>
-              <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">
+              <p className="mt-4 max-w-xl text-base leading-8 text-slate-600 dark:text-slate-400">
                 {isOfficer
                   ? "Sign in as a customs officer to access risk analysis, incoming shipper submissions, audit queue, and monitoring tools."
                   : "Sign in or register to submit your ship number and supporting documents for customs clearance."}
@@ -266,26 +299,26 @@ export default function AuthPortal({ onLoginSuccess }) {
             <button
               type="button"
               onClick={() => { setRole(null); resetMessage(); }}
-              className="mt-6 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600 transition"
+              className="mt-6 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600 transition dark:text-slate-500 dark:hover:text-slate-300"
             >
               ← Back to role selection
             </button>
           </div>
 
           {/* Right panel — forms */}
-          <div className="rounded-[32px] border border-slate-200 bg-white px-7 py-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)]">
-            <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-100 p-1">
+          <div className="rounded-[32px] border border-slate-200 bg-white px-7 py-8 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-900">
+            <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
               <button
                 type="button"
                 onClick={() => { setMode("login"); resetMessage(); }}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${mode === "login" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${mode === "login" ? "bg-slate-900 text-white dark:bg-slate-600" : "text-slate-600 dark:text-slate-400"}`}
               >
                 Login
               </button>
               <button
                 type="button"
                 onClick={() => { setMode("register"); resetMessage(); }}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${mode === "register" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${mode === "register" ? "bg-slate-900 text-white dark:bg-slate-600" : "text-slate-600 dark:text-slate-400"}`}
               >
                 Register
               </button>
@@ -313,7 +346,7 @@ export default function AuthPortal({ onLoginSuccess }) {
                     value={loginForm.user_id}
                     onChange={(e) => setLoginForm((c) => ({ ...c, user_id: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
                     placeholder={isOfficer ? OFFICER_DEMO_ACCOUNT.user_id : SHIPPER_DEMO_ACCOUNT.user_id}
                   />
                 </Field>
@@ -387,7 +420,7 @@ export default function AuthPortal({ onLoginSuccess }) {
             )}
 
             {message && (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {message}
               </div>
             )}
@@ -415,7 +448,7 @@ function Header({ icon: Icon, title, subtitle }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</span>
       {children}
     </label>
   );
@@ -427,7 +460,7 @@ function Input({ value, onChange, placeholder, type = "text" }) {
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400"
+      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-slate-500"
       placeholder={placeholder}
     />
   );
@@ -435,9 +468,9 @@ function Input({ value, onChange, placeholder, type = "text" }) {
 
 function FeatureCard({ title, body }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{body}</p>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">{body}</p>
     </div>
   );
 }
