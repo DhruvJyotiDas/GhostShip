@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Ship, RefreshCw, Play, FileText, ChevronDown, ChevronUp, Loader2, Pencil } from "lucide-react";
 import { statusColor, StatusIcon } from "../utils/statusUtils";
 import DocumentEditModal from "./DocumentEditModal";
+import { apiFetch, assetUrl } from "../utils/api";
 
 const STATUS_OPTIONS = ["Pending", "Under Review", "Cleared", "Flagged", "Rejected"];
 
@@ -28,7 +29,7 @@ export default function OfficerInbox({ onLoadSubmission }) {
   async function loadSubmissions() {
     setLoading(true);
     try {
-      const res = await fetch("/api/submissions");
+      const res = await apiFetch("/api/submissions");
       const data = await res.json();
       if (data.ok) setSubmissions(data.submissions);
       else setSubmissions(_loadLocal());
@@ -42,7 +43,7 @@ export default function OfficerInbox({ onLoadSubmission }) {
   async function updateStatus(id, status) {
     setUpdating(id);
     try {
-      const res = await fetch(`/api/submissions/${id}/status`, {
+      const res = await apiFetch(`/api/submissions/${id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -65,7 +66,7 @@ export default function OfficerInbox({ onLoadSubmission }) {
     async function urlToFile(url, name) {
       if (!url) return null;
       try {
-        const res = await fetch(url);
+        const res = await fetch(assetUrl(url));
         const blob = await res.blob();
         return new File([blob], name, { type: blob.type });
       } catch { return null; }
@@ -214,7 +215,7 @@ export default function OfficerInbox({ onLoadSubmission }) {
                     <div className="flex flex-wrap gap-2">
                       {csvLabel && (
                         sub.csv_url ? (
-                          <a href={sub.csv_url} target="_blank" rel="noopener noreferrer"
+                          <a href={assetUrl(sub.csv_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
                             <FileText className="h-3.5 w-3.5" />
                             {csvLabel}
@@ -230,7 +231,7 @@ export default function OfficerInbox({ onLoadSubmission }) {
                       {docList.map((doc) => (
                         <div key={doc.label} className="inline-flex items-center gap-1">
                           <a
-                            href={doc.url}
+                            href={assetUrl(doc.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300"

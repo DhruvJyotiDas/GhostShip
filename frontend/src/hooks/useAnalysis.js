@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { apiFetch } from "../utils/api";
 
 // Voice alert helper
 const announceRisk = (score, status) => {
@@ -172,7 +173,7 @@ export function useAnalysis() {
         formData.append(key, file);
       });
 
-      const response = await fetch("/api/analyze-documents", {
+      const response = await apiFetch("/api/analyze-documents", {
         method: "POST",
         body: formData,
       });
@@ -204,7 +205,7 @@ export function useAnalysis() {
       formData.append("file", csvFile);
       formData.append("settings", JSON.stringify(settings));
 
-      const response = await fetch("/api/analyze", {
+      const response = await apiFetch("/api/analyze", {
         method: "POST",
         body: formData,
       });

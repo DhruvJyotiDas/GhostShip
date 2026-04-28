@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Upload, Ship, FileText, CheckCircle } from "lucide-react";
 import { statusColor, StatusIcon } from "../utils/statusUtils";
+import { apiFetch } from "../utils/api";
 
 const DOC_SLOTS = [
   { key: "invoice", label: "Commercial Invoice", hint: "PDF, TXT, or Image" },
@@ -36,7 +37,7 @@ export default function ShipperPortal({ authUser, onLogout }) {
   async function loadHistory() {
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/submissions/mine/${authUser.user_id}`);
+      const res = await apiFetch(`/api/submissions/mine/${authUser.user_id}`);
       const data = await res.json();
       if (data.ok) { setMySubmissions(data.submissions); }
       else { setMySubmissions(_loadLocal().filter(s => s.shipper_user_id === authUser.user_id)); }
@@ -82,7 +83,7 @@ export default function ShipperPortal({ authUser, onLogout }) {
 
       let submitted = false;
       try {
-        const res = await fetch("/api/submissions", { method: "POST", body: form });
+        const res = await apiFetch("/api/submissions", { method: "POST", body: form });
         const data = await res.json();
         if (res.ok && data.ok) submitted = true;
       } catch {}

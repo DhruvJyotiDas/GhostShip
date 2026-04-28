@@ -11,6 +11,7 @@ import {
   Check,
   Search,
 } from "lucide-react";
+import { apiFetch } from "../utils/api";
 
 const riskTierStyles = {
   Critical: "bg-red-100 text-red-700 border-red-200",
@@ -50,7 +51,7 @@ export default function SanctionsWatchlist() {
   useEffect(() => {
     async function loadWatchlist() {
       try {
-        const response = await fetch("/api/sanctions-watchlist");
+        const response = await apiFetch("/api/sanctions-watchlist");
         const payload = await response.json();
         if (!response.ok || !payload?.ok) {
           throw new Error(payload?.message || "Could not load watchlist");
@@ -115,7 +116,7 @@ export default function SanctionsWatchlist() {
     try {
       const endpoint = isAdding ? "/api/sanctions-watchlist" : `/api/sanctions-watchlist/${editingId}`;
       const method = isAdding ? "POST" : "PUT";
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -145,7 +146,7 @@ export default function SanctionsWatchlist() {
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/sanctions-watchlist/${entityId}`, { method: "DELETE" });
+      const response = await apiFetch(`/api/sanctions-watchlist/${entityId}`, { method: "DELETE" });
       const payload = await response.json();
       if (!response.ok || !payload?.ok) {
         throw new Error(payload?.message || "Could not remove entity");

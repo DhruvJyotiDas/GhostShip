@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Download, Loader2, FileText, AlertCircle } from "lucide-react";
 import jsPDF from "jspdf";
+import { apiFetch } from "../utils/api";
 
 export default function DocumentEditModal({ submissionId, field, label, onClose }) {
   const [text, setText] = useState("");
@@ -14,7 +15,7 @@ export default function DocumentEditModal({ submissionId, field, label, onClose 
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/submissions/${submissionId}/document-text/${field}`);
+        const res = await apiFetch(`/api/submissions/${submissionId}/document-text/${field}`);
         const data = await res.json();
         if (data.ok) {
           setText(data.text);

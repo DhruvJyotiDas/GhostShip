@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LogIn, ShieldCheck, UserPlus, Ship, Anchor } from "lucide-react";
+import { apiFetch } from "../utils/api";
 
 const emptyOfficerRegister = {
   user_id: "",
@@ -54,7 +55,7 @@ export default function AuthPortal({ onLoginSuccess }) {
     resetMessage();
     const endpoint = role === "officer" ? "/api/auth/login" : "/api/shipper/login";
     try {
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm),
@@ -95,7 +96,7 @@ export default function AuthPortal({ onLoginSuccess }) {
     setLoading(true);
     resetMessage();
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await apiFetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(officerForm),
@@ -117,7 +118,7 @@ export default function AuthPortal({ onLoginSuccess }) {
     setLoading(true);
     resetMessage();
     try {
-      const res = await fetch("/api/shipper/register", {
+      const res = await apiFetch("/api/shipper/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(shipperForm),

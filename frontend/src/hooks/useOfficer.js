@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch, assetUrl } from "../utils/api";
 
 const defaultOfficerProfile = {
   full_name: "Officer A. Rahman",
@@ -19,7 +20,7 @@ function mapManagerToProfile(manager) {
     email: manager.email || "",
     terminal: manager.terminal || "",
     shift_name: manager.shift_name || "",
-    photo_url: manager.photo_url || null,
+    photo_url: assetUrl(manager.photo_url || null),
   };
 }
 
@@ -40,11 +41,12 @@ export function useOfficer(activeManager = null) {
 
     async function loadOfficerProfile() {
       try {
-        const response = await fetch("/api/officer-profile");
+        const response = await apiFetch("/api/officer-profile");
         const payload = await response.json();
         if (payload?.ok && payload.profile) {
-          setProfile(payload.profile);
-          setForm(payload.profile);
+          const nextProfile = { ...payload.profile, photo_url: assetUrl(payload.profile.photo_url) };
+          setProfile(nextProfile);
+          setForm(nextProfile);
         }
       } catch {
         // Keep local defaults if profile service is unavailable.
@@ -85,7 +87,7 @@ export function useOfficer(activeManager = null) {
         formData.append("photo", photoFile);
       }
 
-      const response = await fetch("/api/officer-profile", {
+      const response = await apiFetch("/api/officer-profile", {
         method: "POST",
         body: formData,
       });
@@ -94,10 +96,11 @@ export function useOfficer(activeManager = null) {
         throw new Error(payload?.message || "Could not save officer profile");
       }
 
-      setProfile(payload.profile);
-      setForm(payload.profile);
+      const nextProfile = { ...payload.profile, photo_url: assetUrl(payload.profile.photo_url) };
+      setProfile(nextProfile);
+      setForm(nextProfile);
       setMessage("Officer profile updated successfully.");
-      return payload.profile;
+      return nextProfile;
     } catch (err) {
       setMessage(err.message || "Could not save officer profile");
       return null;
