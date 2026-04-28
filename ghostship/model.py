@@ -23,7 +23,7 @@ FEATURE_COLUMNS = [
     "value_gap_ratio",
 ]
 
-MODEL_PATH = Path(__file__).resolve().parent / "model.pkl"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "artifacts" / "model.pkl"
 _MODEL_BUNDLE = None
 
 

@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+import json
+import os
 import re
+import requests
+import structlog
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+logger = structlog.get_logger("ghostship.document_analysis")
+
+_HF_MODEL = "google/gemma-4-E2B-it"
+_SPACE_URL = os.environ.get("GHOSTSHIP_SPACE_URL", "").rstrip("/")
+_HF_API_URL = (
+    f"{_SPACE_URL}/v1/chat/completions"
+    if _SPACE_URL
+    else f"https://api-inference.huggingface.co/models/{_HF_MODEL}/v1/chat/completions"
+)
 
 try:
     from pypdf import PdfReader
@@ -72,13 +86,24 @@ def _extract_from_pdf(raw_bytes: bytes) -> str:
     if PdfReader is None:
         raise DocumentProcessingError("PDF extraction dependency missing. Install pypdf.")
 
-    reader = PdfReader(BytesIO(raw_bytes))
-    text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-    if not text:
+    try:
+        reader = PdfReader(BytesIO(raw_bytes))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+        if text:
+            return text
         raise DocumentProcessingError(
             "PDF contains no embedded text. OCR is required for scanned PDFs."
         )
-    return text
+    except DocumentProcessingError:
+        raise
+    except Exception:
+        # File may be a text file saved with a .pdf extension — try decoding it
+        try:
+            return _decode_text_file(raw_bytes)
+        except DocumentProcessingError:
+            raise DocumentProcessingError(
+                "Could not read this file. Please upload a valid PDF or text file."
+            )
 
 
 def _extract_from_image(raw_bytes: bytes) -> str:
@@ -86,7 +111,6 @@ def _extract_from_image(raw_bytes: bytes) -> str:
         raise DocumentProcessingError(
             "Image OCR dependencies missing. Install Pillow and pytesseract, and ensure Tesseract is available."
         )
-
     image = Image.open(BytesIO(raw_bytes))
     text = pytesseract.image_to_string(image)
     if not text.strip():
@@ -170,6 +194,61 @@ def _extract_commodity(text: str) -> Optional[str]:
     return None
 
 
+def _hf_extract_fields(text: str, document_type: str) -> Dict[str, object]:
+    """Use Gemma via HF Inference API to fill any fields the regex parser missed."""
+    token = os.environ.get("HF_TOKEN")
+    if not token:
+        return {}
+
+    prompt = f"""You are a customs document parser. Extract structured data from this {document_type.replace('_', ' ')} shipping document.
+
+Return ONLY a valid JSON object with these exact keys (use null for any field not found):
+{{
+  "container_id": "string - container number like ABCD1234567",
+  "shipment_id": "string - shipment/booking/reference number",
+  "commodity": "string - cargo description",
+  "quantity": number,
+  "weight_kg": number,
+  "volume_cbm": number,
+  "declared_value": number,
+  "temperature_celsius": number,
+  "origin": "string - country or port of origin",
+  "destination": "string - destination country or port"
+}}
+
+Document text:
+{text[:3000]}
+
+Respond with only the JSON object, no explanation."""
+
+    try:
+        headers = {"Content-Type": "application/json"}
+        if not _SPACE_URL:
+            headers["Authorization"] = f"Bearer {token}"
+
+        response = requests.post(
+            _HF_API_URL,
+            headers=headers,
+            json={
+                "model": _HF_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 400,
+                "temperature": 0.1,
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        raw = response.json()["choices"][0]["message"]["content"].strip()
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+            logger.info("hf_field_extraction_success", doc_type=document_type)
+            return parsed
+    except Exception as exc:
+        logger.warning("hf_field_extraction_failed", doc_type=document_type, error=str(exc))
+    return {}
+
+
 def parse_document(text: str, document_type: str) -> Dict[str, Optional[object]]:
     normalized = re.sub(r"\r", "", text)
 
@@ -210,7 +289,7 @@ def parse_document(text: str, document_type: str) -> Dict[str, Optional[object]]
         normalized,
     )
 
-    return {
+    regex_result = {
         "document_type": document_type,
         "container_id": _extract_container_id(normalized),
         "shipment_id": _search_alias_value(normalized, FIELD_ALIASES["shipment_id"]),
@@ -224,6 +303,16 @@ def parse_document(text: str, document_type: str) -> Dict[str, Optional[object]]
         "destination": _search_alias_value(normalized, FIELD_ALIASES["destination"]),
         "raw_text": normalized.strip(),
     }
+
+    # Fill any missing fields with Gemini extraction
+    missing = [k for k, v in regex_result.items() if v is None and k not in ("document_type", "raw_text")]
+    if missing:
+        hf_fields = _hf_extract_fields(text, document_type)
+        for field in missing:
+            if hf_fields.get(field) is not None:
+                regex_result[field] = hf_fields[field]
+
+    return regex_result
 
 
 def _pick_consensus_value(documents: Dict[str, Dict[str, object]], field: str) -> Optional[object]:
@@ -371,7 +460,7 @@ def analyze_document_set(files: Dict[str, object]) -> Dict[str, object]:
 
     commodity = str(consensus.get("commodity") or "").lower()
     temperature = consensus.get("temperature_celsius")
-    if any(keyword in commodity for keyword in PERISHABLE_KEYWORDS) and temperature is not None and temperature < 0:
+    if any(keyword in commodity for keyword in PERISHABLE_KEYWORDS) and temperature is not None and temperature < 10:
         issues.append(
             Issue(
                 code="temperature_anomaly",

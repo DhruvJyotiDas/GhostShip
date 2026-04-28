@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 
 
-DEFAULT_CSV_PATH = Path(__file__).resolve().parent / "ghostship_dataset_updated.csv"
+DEFAULT_CSV_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ghostship_dataset_updated.csv"
 
 
 def fetch_shipments_from_csv(csv_path=None):
