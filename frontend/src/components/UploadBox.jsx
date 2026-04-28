@@ -22,6 +22,9 @@ export default function UploadBox({
   error,
   onFileChange,
   onCsvChange,
+  onUseDemoCsv,
+  demoCsvLoading,
+  demoCsvMessage,
   handleAnalyze,
 }) {
   const ready = intakeMode === "documents" ? Object.values(documents).every(Boolean) : Boolean(csvFile);
@@ -137,6 +140,29 @@ export default function UploadBox({
               </div>
             </div>
           </label>
+
+          <div className="rounded-[28px] border border-blue-200 bg-blue-50/80 px-5 py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Demo Mode</p>
+                <h3 className="mt-2 text-base font-semibold text-slate-900">Use the prepared manifest instantly</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  Load `DATASHEET-01.csv` and run a guided demo analysis without browsing for a file.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onUseDemoCsv}
+                disabled={loading || demoCsvLoading}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 lg:w-auto"
+              >
+                {demoCsvLoading ? "Preparing Demo..." : "Use Demo CSV"}
+              </button>
+            </div>
+            {demoCsvMessage ? (
+              <p className="mt-3 text-sm font-medium text-blue-900">{demoCsvMessage}</p>
+            ) : null}
+          </div>
 
           <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 px-5 py-5">
             <div className="flex items-center justify-between gap-3">

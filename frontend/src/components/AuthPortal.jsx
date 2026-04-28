@@ -28,6 +28,11 @@ const SHIPPER_DEMO_ACCOUNT = {
   password: "3361",
 };
 
+const OFFICER_DEMO_ACCOUNT = {
+  user_id: "manager01",
+  password: "manager123",
+};
+
 export default function AuthPortal({ onLoginSuccess }) {
   const [role, setRole] = useState(null); // null = pick screen, 'officer' | 'shipper'
   const [mode, setMode] = useState("login"); // 'login' | 'register'
@@ -292,6 +297,11 @@ export default function AuthPortal({ onLoginSuccess }) {
                   title={isOfficer ? "Officer Login" : "Shipper Login"}
                   subtitle={isOfficer ? "Enter your officer credentials to access the full dashboard." : "Enter your shipper credentials to submit vessels for inspection."}
                 />
+                {isOfficer && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+                    <span className="font-semibold">Demo officer login:</span> Username `manager01` and password `manager123`.
+                  </div>
+                )}
                 {!isOfficer && (
                   <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     <span className="font-semibold">Demo shipper login:</span> Username `3361` and password `3361`.
@@ -303,7 +313,7 @@ export default function AuthPortal({ onLoginSuccess }) {
                     onChange={(e) => setLoginForm((c) => ({ ...c, user_id: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400"
-                    placeholder={isOfficer ? "manager01" : SHIPPER_DEMO_ACCOUNT.user_id}
+                    placeholder={isOfficer ? OFFICER_DEMO_ACCOUNT.user_id : SHIPPER_DEMO_ACCOUNT.user_id}
                   />
                 </Field>
                 <Field label="Password">
@@ -313,7 +323,7 @@ export default function AuthPortal({ onLoginSuccess }) {
                     onChange={(e) => setLoginForm((c) => ({ ...c, password: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400"
-                    placeholder={isOfficer ? "Enter password" : SHIPPER_DEMO_ACCOUNT.password}
+                    placeholder={isOfficer ? OFFICER_DEMO_ACCOUNT.password : SHIPPER_DEMO_ACCOUNT.password}
                   />
                 </Field>
                 <button

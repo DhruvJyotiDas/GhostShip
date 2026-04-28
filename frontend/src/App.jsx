@@ -95,6 +95,134 @@ const defaultAnomalyRows = [
   { type: "Entity linked to 2 prior anomalies", severity: "MEDIUM", status: "Open", timestamp: "4 min ago", engine: "REL" },
 ];
 
+function buildDemoCsvPayload(settings) {
+  return {
+    ok: true,
+    settings,
+    summary: {
+      total_shipments: 1150,
+      high_risk_alerts: 47,
+      medium_risk: 218,
+      cleared_shipments: 885,
+    },
+    top_result: {
+      shipment_id: "SHP00000024",
+      risk_score: 91,
+      status: "HIGH",
+      confidence: 95,
+      recommended_action: "Immediate hold and cold-chain verification",
+      explanation:
+        "This manifest shows a severe cargo integrity issue: bananas were declared at -18 C, which is operationally impossible for normal refrigerated produce. The temperature anomaly is reinforced by route risk and inconsistent supporting values, making this shipment a strong candidate for misdeclaration or concealment.",
+      risk_tags: ["CARGO ANOMALY DETECTED", "DOCUMENT DISCREPANCY", "ROUTE RISK"],
+      shipment_details: {
+        shipment_id: "SHP00000024",
+        container_id: "SHP00000024",
+        company_name: "COMP00055",
+        commodity: "bananas",
+        origin: "Shanghai",
+        destination: "Dubai",
+        quantity: 4245,
+        value: 586035.97,
+        weight_kg: 4070,
+        volume_cbm: 19.016,
+        temperature_celsius: -18.0,
+      },
+      engine_breakdown: {
+        Physics: 0.96,
+        Document: 0.71,
+        Behavior: 0.34,
+        Network: 0.18,
+      },
+    },
+    anomalies: [
+      {
+        type: "Cold-chain violation: bananas declared at -18 C",
+        severity: "HIGH",
+        status: "Open",
+        timestamp: "Just now",
+        category: "physics",
+      },
+      {
+        type: "Declared route shows elevated inspection exposure into Dubai",
+        severity: "MEDIUM",
+        status: "Review",
+        timestamp: "1 min ago",
+        category: "network",
+      },
+      {
+        type: "Manifest value falls outside expected commodity band for route and weight",
+        severity: "MEDIUM",
+        status: "Review",
+        timestamp: "2 min ago",
+        category: "document",
+      },
+      {
+        type: "Account profile requires manual review before release",
+        severity: "MEDIUM",
+        status: "Open",
+        timestamp: "3 min ago",
+        category: "behavior",
+      },
+    ],
+    results: [
+      {
+        shipment_id: "SHP00000024",
+        classification: "HIGH",
+        risk_score: 91,
+        action: "Immediate hold",
+        explanation: "Impossible cargo temperature for bananas with elevated route risk and value inconsistency.",
+        engine_scores: { Physics: 0.96, Document: 0.71, Behavior: 0.34, Network: 0.18 },
+        details: {
+          physics: { temperature_anomaly: "Bananas listed at -18 C instead of the expected 13 to 14 C range" },
+          document: { value_mismatch: "Declared value outside expected commodity band for shipment profile" },
+        },
+      },
+      {
+        shipment_id: "SHP00000017",
+        classification: "HIGH",
+        risk_score: 84,
+        action: "Full inspection",
+        explanation: "Ice cream cargo shows warm-temperature exposure inconsistent with refrigerated handling requirements.",
+        engine_scores: { Physics: 0.91, Document: 0.42, Behavior: 0.19, Network: 0.11 },
+        details: {
+          physics: { temperature_anomaly: "Ice cream recorded at 25 C despite frozen cargo declaration" },
+        },
+      },
+      {
+        shipment_id: "SHP00000015",
+        classification: "HIGH",
+        risk_score: 78,
+        action: "Origin verification",
+        explanation: "Textile shipment shows origin mismatch and corridor risk requiring supporting document review.",
+        engine_scores: { Physics: 0.12, Document: 0.67, Behavior: 0.24, Network: 0.29 },
+        details: {
+          document: { origin_fraud: "Declared Myanmar conflicts with shipment movement pattern and manifest indicators" },
+        },
+      },
+      {
+        shipment_id: "SHP00000005",
+        classification: "MEDIUM",
+        risk_score: 63,
+        action: "Secondary inspection",
+        explanation: "Network-linked shipment with elevated behavioral exposure and moderate declaration variance.",
+        engine_scores: { Physics: 0.09, Document: 0.31, Behavior: 0.46, Network: 0.74 },
+        details: {
+          network: { linked_company: "Connected entity overlap with a prior anomaly cluster" },
+        },
+      },
+      {
+        shipment_id: "SHP00000006",
+        classification: "LOW",
+        risk_score: 18,
+        action: "Direct clearance",
+        explanation: "Temperature-controlled cargo remains within expected range and no material inconsistencies were detected.",
+        engine_scores: { Physics: 0.08, Document: 0.14, Behavior: 0.05, Network: 0.04 },
+        details: {},
+      },
+    ],
+  };
+}
+
 function titleCaseEngine(engine) {
   return engine.charAt(0).toUpperCase() + engine.slice(1).toLowerCase();
 }
@@ -196,6 +324,9 @@ export default function App() {
   const [auditRows, setAuditRows] = useState([]);
   const [auditQueueMessage, setAuditQueueMessage] = useState("");
   const [auditQueueSaving, setAuditQueueSaving] = useState(false);
+  const [demoCsvLoading, setDemoCsvLoading] = useState(false);
+  const [demoCsvMessage, setDemoCsvMessage] = useState("");
+  const [demoCsvSelected, setDemoCsvSelected] = useState(false);
 
   const { profile, form, saving, message, updateField, saveProfile } = useOfficer(authUser);
   const { analysis, setAnalysis, results, setResults, loading, error, setError, resetAnalysis, loadDemo, analyzeDocuments, analyzeCSV } = useAnalysis();
@@ -311,6 +442,8 @@ export default function App() {
 
   function updateCsv(file) {
     setCsvFile(file || null);
+    setDemoCsvSelected(false);
+    setDemoCsvMessage("");
     setError("");
   }
 
@@ -319,15 +452,154 @@ export default function App() {
     setError("");
   }
 
-  async function handleAnalyze() {
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function runDemoCsvFlow() {
+    setIntakeMode("csv");
+    setDocuments({ invoice: null, packing_list: null, bill_of_lading: null });
+    setError("");
+    setDemoCsvLoading(true);
+    setDemoCsvSelected(true);
+
+    try {
+      setDemoCsvMessage("Loading demo manifest DATASHEET-01.csv...");
+      const response = await fetch("/demo/DATASHEET-01.csv");
+      if (!response.ok) {
+        throw new Error("Could not load the demo CSV file.");
+      }
+
+      const blob = await response.blob();
+      const demoFile = new File([blob], "DATASHEET-01.csv", { type: "text/csv" });
+      setCsvFile(demoFile);
+      await runTimedDemoAnalysis();
+    } catch (err) {
+      setDemoCsvMessage("");
+      setError(err.message || "Could not run the demo CSV analysis.");
+    } finally {
+      setDemoCsvLoading(false);
+    }
+  }
+
+  async function runTimedDemoAnalysis() {
+    setError("");
+    setDemoCsvLoading(true);
+
+    try {
+      setDemoCsvMessage("Sample manifest loaded. Initializing anomaly scan...");
+      await wait(1000);
+
+      setDemoCsvMessage("Running shipment, behavior, and document consistency checks...");
+      await wait(1000);
+
+      setDemoCsvMessage("Correlating cargo physics, route exposure, and entity patterns...");
+      await wait(1000);
+
+      setDemoCsvMessage("Generating ranked risk results for officer review...");
+      await wait(1000);
+
+      applyAnalysisPayload(buildDemoCsvPayload(csvSettings), true);
+      setDemoCsvMessage("Demo analysis complete. Review the flagged shipments below.");
+    } catch (err) {
+      setDemoCsvMessage("");
+      setError(err.message || "Could not run the demo CSV analysis.");
+    } finally {
+      setDemoCsvLoading(false);
+    }
+  }
+
+  function applyAnalysisPayload(payload, isDemo = false) {
+    const top = payload.top_result;
+    const details = top.shipment_details;
+    const engineBreakdown = mapBreakdown(top.engine_breakdown);
+    const declaredValue = formatCurrency(details.value);
+    const comparisonInsight = deriveExpectedRange(declaredValue);
+
+    setAnalysis({
+      riskScore: top.risk_score,
+      confidenceScore: deriveConfidence(engineBreakdown, top.confidence),
+      status: top.status || classifyRiskScore(top.risk_score),
+      recommendedAction: top.recommended_action || actionForStatus(top.status || classifyRiskScore(top.risk_score)),
+      explanation: top.explanation,
+      shipmentDetails: {
+        shipmentId: details.shipment_id || "Unknown",
+        containerId: details.container_id || details.shipment_id || "Unknown",
+        company: details.company || details.company_name || "Unknown",
+        commodity: details.commodity || "Unknown",
+        origin: details.origin || "Unknown",
+        destination: details.destination || "Unknown",
+        quantity: formatLooseValue(details.quantity),
+        declaredValue,
+        weight: formatMetric(details.weight_kg, "KG"),
+        volume: formatMetric(details.volume_cbm, "CBM"),
+        temperature: details.temperature_celsius == null ? "Unknown" : `${details.temperature_celsius} C`,
+      },
+      engineBreakdown,
+      riskFactors: payload.anomalies?.map((a) => a.type) || ["No material anomalies detected"],
+      riskTags: top.risk_tags || deriveRiskTags(engineBreakdown, payload.anomalies || []),
+      operationalImpact: {
+        riskValue: `${declaredValue} under customs review`,
+        inspectionRequirement: actionForStatus(classifyRiskScore(top.risk_score)),
+      },
+      comparisonInsight,
+    });
+
+    setDocumentInsights(intakeMode === "documents" ? payload.documents || defaultDocumentInsights : defaultDocumentInsights);
+    if (intakeMode === "csv" && payload.settings) {
+      setCsvSettings(payload.settings);
+    }
+    setResults((payload.results || []).map(normalizeResult));
+    setRiskFilter("ALL");
+    setAnomalyRows(
+      payload.anomalies?.length
+        ? payload.anomalies.map((row, index) => ({
+            ...row,
+            engine: row.engine || engineLabelFromCategory(row.category),
+            absoluteTimestamp: formatAuditTimestamp(row.timestamp, index),
+          }))
+        : [
+            {
+              type: "No material anomalies detected",
+              severity: "LOW",
+              status: "Closed",
+              timestamp: "Just now",
+              absoluteTimestamp: formatAuditTimestamp("Just now"),
+              engine: "DOC",
+            },
+          ],
+    );
+    setHeroMetric({
+      eyebrow: isDemo ? "Demo manifest review" : "Current upload review",
+      title: `${payload.summary.total_shipments.toLocaleString()} shipments analyzed in this intake`,
+      description: `${payload.summary.high_risk_alerts.toLocaleString()} priority reviews, ${payload.summary.medium_risk.toLocaleString()} secondary checks, ${payload.summary.cleared_shipments.toLocaleString()} direct clearances.`,
+      trend: `${top.risk_score}/100 top risk`,
+      direction: top.risk_score > 70 ? "up" : "down",
+      updated: isDemo ? "Updated after 4 sec demo run" : "Updated just now",
+      sparkline: isDemo ? [19, 24, 28, 36, 41, 46, 52, 57, 61] : [22, 26, 29, 31, 35, 38, 42, 45, 49],
+      highlights: [
+        { label: "Priority Reviews", value: payload.summary.high_risk_alerts.toLocaleString() },
+        { label: "Secondary Checks", value: payload.summary.medium_risk.toLocaleString() },
+        { label: "Direct Clearances", value: payload.summary.cleared_shipments.toLocaleString() },
+      ],
+    });
+    setActiveView("analysis");
+  }
+
+  async function handleAnalyze(overrideCsvFile = null) {
     if (intakeMode === "documents") {
       const ready = documentFields.every((field) => documents[field.key]);
       if (!ready) {
         setError("Please upload invoice, packing list, and bill of lading before analyzing.");
         return;
       }
-    } else if (!csvFile) {
+    } else if (!(overrideCsvFile || csvFile)) {
       setError("Please upload a CSV file before analyzing.");
+      return;
+    }
+
+    if (intakeMode === "csv" && demoCsvSelected && ((overrideCsvFile || csvFile)?.name === "DATASHEET-01.csv")) {
+      await runTimedDemoAnalysis();
       return;
     }
 
@@ -336,84 +608,12 @@ export default function App() {
       if (intakeMode === "documents") {
         payload = await analyzeDocuments(documents);
       } else {
-        payload = await analyzeCSV(csvFile, csvSettings);
+        payload = await analyzeCSV(overrideCsvFile || csvFile, csvSettings);
       }
-
-      // Transform API response to component state
-      const top = payload.top_result;
-      const details = top.shipment_details;
-      const engineBreakdown = mapBreakdown(top.engine_breakdown);
-      const declaredValue = formatCurrency(details.value);
-      const comparisonInsight = deriveExpectedRange(declaredValue);
-
-      setAnalysis({
-        riskScore: top.risk_score,
-        confidenceScore: deriveConfidence(engineBreakdown, top.confidence),
-        status: top.status || classifyRiskScore(top.risk_score),
-        recommendedAction: top.recommended_action || actionForStatus(top.status || classifyRiskScore(top.risk_score)),
-        explanation: top.explanation,
-        shipmentDetails: {
-          shipmentId: details.shipment_id || "Unknown",
-          containerId: details.container_id || details.shipment_id || "Unknown",
-          company: details.company || details.company_name || "Unknown",
-          commodity: details.commodity || "Unknown",
-          origin: details.origin || "Unknown",
-          destination: details.destination || "Unknown",
-          quantity: formatLooseValue(details.quantity),
-          declaredValue,
-          weight: formatMetric(details.weight_kg, "KG"),
-          volume: formatMetric(details.volume_cbm, "CBM"),
-          temperature: details.temperature_celsius == null ? "Unknown" : `${details.temperature_celsius} C`,
-        },
-        engineBreakdown,
-        riskFactors: payload.anomalies?.map((a) => a.type) || ["No material anomalies detected"],
-        riskTags: top.risk_tags || deriveRiskTags(engineBreakdown, payload.anomalies || []),
-        operationalImpact: {
-          riskValue: `${declaredValue} under customs review`,
-          inspectionRequirement: actionForStatus(classifyRiskScore(top.risk_score)),
-        },
-        comparisonInsight,
-      });
-
-      setDocumentInsights(intakeMode === "documents" ? payload.documents || defaultDocumentInsights : defaultDocumentInsights);
-      if (intakeMode === "csv" && payload.settings) {
-        setCsvSettings(payload.settings);
-      }
-      setResults((payload.results || []).map(normalizeResult));
-      setRiskFilter("ALL");
-      setAnomalyRows(
-        payload.anomalies?.length
-          ? payload.anomalies.map((row, index) => ({
-              ...row,
-              engine: row.engine || engineLabelFromCategory(row.category),
-              absoluteTimestamp: formatAuditTimestamp(row.timestamp, index),
-            }))
-          : [
-              {
-                type: "No material anomalies detected",
-                severity: "LOW",
-                status: "Closed",
-                timestamp: "Just now",
-                absoluteTimestamp: formatAuditTimestamp("Just now"),
-                engine: "DOC",
-              },
-            ],
+      applyAnalysisPayload(payload);
+      setDemoCsvMessage((current) =>
+        current ? `Demo complete: ${payload.summary.total_shipments.toLocaleString()} shipments scanned, ${payload.summary.high_risk_alerts.toLocaleString()} flagged as high risk.` : current,
       );
-      setHeroMetric({
-        eyebrow: "Current upload review",
-        title: `${payload.summary.total_shipments.toLocaleString()} shipments analyzed in this intake`,
-        description: `${payload.summary.high_risk_alerts.toLocaleString()} priority reviews, ${payload.summary.medium_risk.toLocaleString()} secondary checks, ${payload.summary.cleared_shipments.toLocaleString()} direct clearances.`,
-        trend: `${top.risk_score}/100 top risk`,
-        direction: top.risk_score > 70 ? "up" : "down",
-        updated: "Updated just now",
-        sparkline: [22, 26, 29, 31, 35, 38, 42, 45, 49],
-        highlights: [
-          { label: "Priority Reviews", value: payload.summary.high_risk_alerts.toLocaleString() },
-          { label: "Secondary Checks", value: payload.summary.medium_risk.toLocaleString() },
-          { label: "Direct Clearances", value: payload.summary.cleared_shipments.toLocaleString() },
-        ],
-      });
-      setActiveView("analysis");
     } catch (err) {
       // Error is handled by hook
     }
@@ -618,6 +818,9 @@ export default function App() {
               error={error}
               onFileChange={updateDocument}
               onCsvChange={updateCsv}
+              onUseDemoCsv={runDemoCsvFlow}
+              demoCsvLoading={demoCsvLoading}
+              demoCsvMessage={demoCsvMessage}
               handleAnalyze={handleAnalyze}
             />
             <AlertFeed alerts={alerts} />
@@ -668,6 +871,9 @@ export default function App() {
               error={error}
               onFileChange={updateDocument}
               onCsvChange={updateCsv}
+              onUseDemoCsv={runDemoCsvFlow}
+              demoCsvLoading={demoCsvLoading}
+              demoCsvMessage={demoCsvMessage}
               handleAnalyze={handleAnalyze}
             />
             <RiskGauge

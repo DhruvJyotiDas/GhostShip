@@ -51,6 +51,23 @@ load_dotenv()
 
 app = Flask(__name__)
 
+
+def _split_csv_env(value: str) -> list[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+DEFAULT_FRONTEND_ORIGINS = [
+    "http://127.0.0.1:5173", "http://localhost:5173",
+    "http://127.0.0.1:5174", "http://localhost:5174",
+    "http://127.0.0.1:5175", "http://localhost:5175",
+]
+FRONTEND_ORIGINS = _split_csv_env(os.getenv("FRONTEND_ORIGINS", ""))
+if not FRONTEND_ORIGINS:
+    frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
+    FRONTEND_ORIGINS = [frontend_origin] if frontend_origin else DEFAULT_FRONTEND_ORIGINS
+PUBLIC_FRONTEND_URL = FRONTEND_ORIGINS[0] if FRONTEND_ORIGINS else "http://localhost:5175"
+RENDER_DATA_DIR = os.getenv("DATA_DIR", "").strip()
+
 # File size limits (in bytes)
 MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB for documents
 MAX_CSV_SIZE = 10 * 1024 * 1024  # 10MB for CSV files
@@ -59,11 +76,7 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 # CORS configuration - restrict to specific origins in production
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "http://127.0.0.1:5173", "http://localhost:5173",
-            "http://127.0.0.1:5174", "http://localhost:5174",
-            "http://127.0.0.1:5175", "http://localhost:5175",
-        ],
+        "origins": FRONTEND_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
@@ -216,10 +229,12 @@ DEFAULT_MANAGER_ACCOUNT = {
 }
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "ghostship.db"
-UPLOAD_DIR = BASE_DIR / "uploads" / "officers"
+DATA_DIR = Path(RENDER_DATA_DIR) if RENDER_DATA_DIR else BASE_DIR
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "ghostship.db"
+UPLOAD_DIR = DATA_DIR / "uploads" / "officers"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-SHIPPER_UPLOAD_DIR = BASE_DIR / "uploads" / "shipper_submissions"
+SHIPPER_UPLOAD_DIR = DATA_DIR / "uploads" / "shipper_submissions"
 SHIPPER_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DB_TYPE = os.getenv("DB_TYPE", "sqlite").strip().lower()
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1").strip()
@@ -1249,7 +1264,7 @@ def index():
         {
             "ok": True,
             "message": "GhostShip API is running",
-            "frontend_url": "http://127.0.0.1:5173",
+            "frontend_url": PUBLIC_FRONTEND_URL,
             "endpoints": [
                 "/api/health",
                 "/api/analyze",
@@ -1936,5 +1951,7 @@ def analyze_documents():
 
 
 if __name__ == "__main__":
-    logger.info("starting_ghostship_api", host="127.0.0.1", port=5000)
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    port = int(os.getenv("PORT", "5000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    logger.info("starting_ghostship_api", host=host, port=port, data_dir=str(DATA_DIR), cors_origins=FRONTEND_ORIGINS)
+    app.run(host=host, port=port, debug=False)
